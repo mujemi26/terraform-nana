@@ -11,6 +11,10 @@ variable "availability_zone" {}
 
 variable "env_prefix" {}
 
+variable "instance_type" {}
+
+variable "pub_key_location" {}
+
 resource "aws_vpc" "myapp-vpc" {
     cidr_block = var.vpc_cidr_block
     tags = {
@@ -92,3 +96,40 @@ resource "aws_security_group" "myapp-sg" {
     }
 }
 
+data "aws_ami" "latest-amazon-linux-image" {
+    most_recent = true
+    owners = ["amazon"]
+    filter {
+        name = "name"
+        values = ["amzn2-ami-hvm-*-x86_64-gp2"]
+    }
+    filter {
+        name = "virtualization-type"
+        values = ["hvm"]
+    }
+}
+
+resource "aws_key_pair" "server-key" {
+    key_name = "server-key"
+    public_key = file(var.pub_key_location)
+}
+
+resource "aws_instance" "myapp-server" {
+    ami = data.aws_ami.latest-amazon-linux-image.id
+    instance_type = var.instance_type
+    subnet_id = aws_subnet.myapp-subnet-1.id
+    security_groups = [aws_security_group.myapp-sg.id]
+    availability_zone = var.availability_zone
+    associate_public_ip_address = true
+    key_name = aws_key_pair.server-key.key_name
+    tags = {
+        Name = "${var.env_prefix}-server"
+    }
+}
+
+
+
+
+output "aws_ami_id" {
+    value = data.aws_ami.latest-amazon-linux-image.id
+}
