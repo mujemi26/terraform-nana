@@ -85,6 +85,13 @@ resource "aws_security_group" "myapp-sg" {
         cidr_blocks = ["0.0.0.0/0"]
     }
 
+    ingress {
+        from_port = 443
+        to_port = 443
+        protocol = "tcp"
+        cidr_blocks = ["0.0.0.0/0"]
+    }
+
     egress {
         from_port = 0
         to_port = 0
@@ -122,6 +129,15 @@ resource "aws_instance" "myapp-server" {
     availability_zone = var.availability_zone
     associate_public_ip_address = true
     key_name = aws_key_pair.server-key.key_name
+    
+    user_data = <<EOF
+                    #!/bin/bash
+                    sudo yum update -y && sudo yum install -y docker
+                    sudo systemctl start docker
+                    sudo usermod -a -G docker ec2-user
+                    sudo systemctl enable docker
+                    docker run -p 8080:80 -d nginx
+                EOF
     tags = {
         Name = "${var.env_prefix}-server"
     }
@@ -134,4 +150,8 @@ resource "aws_instance" "myapp-server" {
 
 output "aws_ami_id" {
     value = data.aws_ami.latest-amazon-linux-image.id
+}
+
+output "ec2_public_ip" {
+    value = aws_instance.myapp-server.public_ip
 }
